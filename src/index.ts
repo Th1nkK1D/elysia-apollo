@@ -16,7 +16,7 @@ export interface ServerRegistration<
 	TContext extends BaseContext = BaseContext
 > extends Omit<StartStandaloneServerOptions<any>, 'context'> {
 	path?: Path
-	landingPage: 'Local' | 'Production'
+	landingPage?: 'Local' | 'Production' | 'Disabled'
 	context?: (context: TContext) => Promise<TContext>
 }
 
@@ -37,44 +37,46 @@ export class ElysiaApolloServer<
 		landingPage,
 		context: apolloContext = async () => ({}) as any
 	}: ServerRegistration<Path, Context>) {
-		const landingPagePlugin = (
-			landingPage === 'Production'
-				? ApolloServerPluginLandingPageProductionDefault
-				: ApolloServerPluginLandingPageLocalDefault
-		)({
-			footer: false
-		})
-
 		await this.start()
-
-		const landingPageHtml = await landingPagePlugin!.serverWillStart!(
-			// @ts-ignore
-			{}
-		).then((r) =>
-			r?.renderLandingPage
-				? // @ts-ignore
-					r
-						.renderLandingPage()
-						.then(({ html }) =>
-							typeof html === 'string' ? html : html()
-						)
-				: null
-		)
 
 		const executeHTTPGraphQLRequest =
 			this.executeHTTPGraphQLRequest.bind(this)
 
 		const app = new Elysia()
 
-		if (landingPageHtml)
-			app.get(
-				path,
-				new Response(landingPageHtml, {
-					headers: {
-						'Content-Type': 'text/html'
-					}
-				})
+		if (landingPage !== 'Disabled') {
+			const landingPagePlugin = (
+				landingPage === 'Production'
+					? ApolloServerPluginLandingPageProductionDefault
+					: ApolloServerPluginLandingPageLocalDefault
+			)({
+				footer: false
+			})
+
+			const landingPageHtml = await landingPagePlugin?.serverWillStart!(
+				// @ts-ignore
+				{}
+			).then((r) =>
+				r?.renderLandingPage
+					? // @ts-ignore
+						r
+							.renderLandingPage()
+							.then(({ html }) =>
+								typeof html === 'string' ? html : html()
+							)
+					: null
 			)
+
+			if (landingPageHtml)
+				app.get(
+					path,
+					new Response(landingPageHtml, {
+						headers: {
+							'Content-Type': 'text/html'
+						}
+					})
+				)
+		}
 
 		return app.post(
 			path,
