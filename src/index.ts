@@ -52,7 +52,12 @@ export class ElysiaApolloServer<
 			{}
 		).then((r) =>
 			r?.renderLandingPage
-				? r.renderLandingPage().then((r) => r.html)
+				? // @ts-ignore
+					r
+						.renderLandingPage()
+						.then(({ html }) =>
+							typeof html === 'string' ? html : html()
+						)
 				: null
 		)
 
@@ -64,7 +69,7 @@ export class ElysiaApolloServer<
 		if (landingPageHtml)
 			app.get(
 				path,
-				new Response(landingPageHtml as string, {
+				new Response(landingPageHtml, {
 					headers: {
 						'Content-Type': 'text/html'
 					}
